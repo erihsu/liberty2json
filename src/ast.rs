@@ -1,4 +1,4 @@
-use crate::parser::liberty_parser::liberty_parser;
+use crate::liberty_parser;
 use json::JsonValue;
 
 use nom::{error::convert_error, Err};
@@ -10,8 +10,7 @@ use std::{
 #[derive(Clone)]
 pub struct LibraryType {
     pub name: String,
-    pub attribute: JsonValue,
-    pub group: JsonValue,
+    pub library: JsonValue,
     pub cell: Vec<JsonValue>,
 }
 

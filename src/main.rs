@@ -1,5 +1,7 @@
 use clap::App;
 use liberty2json::convert_lib;
+use log::info;
+use std::path::Path;
 fn main() {
     // from clap examples
     let matches = App::new("lib2json")
@@ -15,7 +17,16 @@ fn main() {
         )
         .get_matches();
 
-    let input_file = matches.value_of("INPUT").unwrap();
-    let output_folder = matches.value_of("FOLDER").unwrap();
-    convert_lib(input_file, output_folder).unwrap();
+    if let Some(source) = matches.value_of("INPUT") {
+        let input = Path::new(source);
+        let output_path = if let Some(desti) = matches.value_of("FOLDER") {
+            Path::new(desti)
+        } else {
+            info!("Not Set output path,will use the path of liberty file as default path");
+            input
+                .parent()
+                .expect("Cannot get parent path of liberty file")
+        };
+        convert_lib(input, output_path).expect("Failed to generate json");
+    }
 }

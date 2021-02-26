@@ -2,6 +2,32 @@
 
 
 
+# Syntax
+
+Attribute
+key: value
+
+Group
+
+class(name){
+	attribute1,
+	attribute2,
+	...
+	group1-withoutname
+	group2-withoutname
+	...
+}
+
+or 
+
+class(){
+	attribute1,
+	attribute2,
+	...
+	group1-hasname
+	group2-hasname
+}
+
 
 # Reference
 

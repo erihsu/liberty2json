@@ -11,8 +11,7 @@ impl LibraryType {
         let mut library_json = json::JsonValue::new_object();
         let file_name = format!("{}{}", self.name, "_library.lib.json".to_string());
         library_json["name"] = self.name.clone().into();
-        library_json["attribute"] = self.attribute.clone();
-        library_json["group"] = self.group.clone();
+        library_json["library"] = self.library.clone();
         fs::write(path.join(file_name), library_json.dump())?;
 
         Ok(())
