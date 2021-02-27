@@ -12,7 +12,7 @@ impl LibraryType {
         let file_name = format!("{}{}", self.name, "_library.lib.json".to_string());
         library_json["name"] = self.name.clone().into();
         library_json["library"] = self.library.clone();
-        fs::write(path.join(file_name), library_json.dump())?;
+        fs::write(path.join(file_name), library_json.pretty(4))?;
 
         Ok(())
     }
@@ -24,7 +24,7 @@ impl LibraryType {
         let cells = &self.cell;
         for a_cell in cells {
             let file_name = format!("{}{}", a_cell["name"], "_cell.lib.json".to_string());
-            fs::write(path.join(file_name), a_cell.dump())?;
+            fs::write(path.join(file_name), a_cell.pretty(4))?;
         }
 
         Ok(())
