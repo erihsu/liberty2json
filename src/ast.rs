@@ -10,11 +10,20 @@ use std::{
 #[derive(Clone)]
 pub struct LibraryType {
     pub name: String,
-    pub library: JsonValue,
-    pub cell: Vec<JsonValue>,
+    pub lib_attribute: Vec<JsonValue>,
 }
 
-impl FromStr for LibraryType {
+pub struct CellType {
+    pub name: String,
+    pub cell_attribute: Vec<JsonValue>,
+}
+
+pub struct Liberty {
+    pub library: LibraryType,
+    pub cell: Vec<CellType>,
+}
+
+impl FromStr for Liberty {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match liberty_parser(s) {

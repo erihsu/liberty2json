@@ -1,8 +1,10 @@
 use clap::App;
 use liberty2json::convert_lib;
 use log::info;
+use pretty_env_logger::init;
 use std::path::Path;
 fn main() {
+    init();
     // from clap examples
     let matches = App::new("lib2json")
         .version("0.1.0")

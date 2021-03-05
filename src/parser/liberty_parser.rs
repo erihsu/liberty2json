@@ -3,7 +3,7 @@ use super::{
     base::{lib_comment, tstring, ws},
     group_parser::*,
 };
-use crate::{ast::LibraryType, LibRes};
+use crate::{ast::LibraryType, CellType, LibRes, Liberty};
 
 use nom::branch::alt;
 
@@ -13,7 +13,7 @@ use nom::{
     sequence::{delimited, preceded, tuple},
 };
 
-pub fn liberty_parser(input: &str) -> LibRes<&str, LibraryType> {
+pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
     tuple((
         many0(lib_comment),
         preceded(
@@ -24,7 +24,7 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, LibraryType> {
             ws(tag("{")),
             tuple((
                 many0(alt((attribute_parser, named_group_parser))),
-                many0(named_group_parser),
+                many0(cell_parser),
             )),
             ws(tag("}")),
         ),
@@ -32,10 +32,40 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, LibraryType> {
     .map(|(res, data)| {
         (
             res,
-            LibraryType {
-                name: data.1.to_string(),
-                library: json::JsonValue::Array((data.2).0),
+            Liberty {
+                library: LibraryType {
+                    name: data.1.to_string(),
+                    lib_attribute: (data.2).0,
+                },
                 cell: (data.2).1,
+            },
+        )
+    })
+}
+
+pub fn cell_parser(input: &str) -> LibRes<&str, CellType> {
+    tuple((
+        many0(lib_comment),
+        preceded(
+            ws(tag("cell")),
+            delimited(ws(tag("(")), tstring, ws(tag(")"))),
+        ),
+        delimited(
+            ws(tag("{")),
+            many0(alt((
+                attribute_parser,
+                named_group_parser,
+                unnamed_group_parser,
+            ))),
+            ws(tag("}")),
+        ),
+    ))(input)
+    .map(|(res, data)| {
+        (
+            res,
+            CellType {
+                name: data.1.to_string(),
+                cell_attribute: data.2,
             },
         )
     })

@@ -7,20 +7,14 @@ use nom::error::context;
 use nom::sequence::{separated_pair, terminated, tuple};
 
 fn simple_attribute(input: &str) -> LibRes<&str, (&str, JsonValue)> {
-    context(
-        "Simple Attribute",
-        terminated(
-            separated_pair(tstring, tag(":"), simple_attribute_value),
-            ws(tag(";")),
-        ),
+    terminated(
+        separated_pair(tstring, tag(":"), simple_attribute_value),
+        ws(tag(";")),
     )(input)
 }
 
 fn complex_attribute(input: &str) -> LibRes<&str, (&str, JsonValue)> {
-    context(
-        "Complex Attribute",
-        terminated(tuple((tstring, complex_attribue_value)), ws(tag(";"))),
-    )(input)
+    terminated(tuple((tstring, complex_attribue_value)), ws(tag(";")))(input)
 }
 
 pub fn attribute_parser(input: &str) -> LibRes<&str, JsonValue> {

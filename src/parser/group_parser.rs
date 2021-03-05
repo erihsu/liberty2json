@@ -12,6 +12,7 @@ use nom::{
     sequence::{delimited, terminated, tuple},
 };
 
+// assume named group only contain unnamed group
 pub fn named_group_parser(input: &str) -> LibRes<&str, JsonValue> {
     context(
         "Named Group Parser",
@@ -19,10 +20,7 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, JsonValue> {
             tuple((tstring, delimited(tag("("), take_until(")"), tag(")")))),
             delimited(
                 ws(tag("{")),
-                tuple((
-                    many0(attribute_parser),
-                    many0(alt((unnamed_group_parser, named_group_parser))),
-                )),
+                tuple((many0(attribute_parser), many0(unnamed_group_parser))),
                 ws(tag("}")),
             ),
         )),
@@ -31,8 +29,13 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, JsonValue> {
         let mut json_data = JsonValue::new_object();
         json_data["class"] = JsonValue::String((data.0).0.to_string());
         json_data["name"] = JsonValue::String((data.0).1.to_string());
-        json_data["attribue"] = JsonValue::Array((data.1).0);
-        json_data["group"] = JsonValue::Array((data.1).1);
+        if !(data.1).0.is_empty() {
+            json_data["attribue"] = JsonValue::Array((data.1).0);
+        }
+        if !(data.1).1.is_empty() {
+            json_data["group"] = JsonValue::Array((data.1).1);
+        }
+
         (res, json_data)
     })
 }
@@ -55,8 +58,12 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, JsonValue> {
     .map(|(res, data)| {
         let mut json_data = JsonValue::new_object();
         json_data["class"] = JsonValue::String((data.0).to_string());
-        json_data["attribue"] = JsonValue::Array((data.1).0);
-        json_data["group"] = JsonValue::Array((data.1).1);
+        if !(data.1).0.is_empty() {
+            json_data["attribue"] = JsonValue::Array((data.1).0);
+        }
+        if !(data.1).1.is_empty() {
+            json_data["group"] = JsonValue::Array((data.1).1);
+        }
         (res, json_data)
     })
 }

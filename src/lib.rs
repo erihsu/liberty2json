@@ -1,7 +1,7 @@
 mod ast;
 mod dump;
 mod parser;
-pub use ast::LibraryType;
+pub use ast::{CellType, Liberty, LibraryType};
 use log::info;
 use nom::{error::VerboseError, IResult};
 use std::fs;
@@ -13,28 +13,24 @@ pub fn convert_lib<P>(source: P, destinate: P) -> std::io::Result<()>
 where
     P: AsRef<Path>,
 {
-    info!("[Lib2Json] INFO Starting Parse the liberty...");
+    info!("Starting Parse the liberty...");
     let now = SystemTime::now();
-    let lib_data: LibraryType = fs::read_to_string(source)?.parse()?;
+    let liberty_data: Liberty = fs::read_to_string(source)?.parse()?;
     let passed = SystemTime::now();
-    info!(
-        "[Lib2Json] INFO Finish Parsing, Time Used:{:?}",
-        passed.duration_since(now)
-    );
-    info!("[Lib2Json] INFO Starting Dumping...");
+    info!("Finish Parsing, Time Used:{:?}", passed.duration_since(now));
+    info!("Starting Dumping...");
     let now = SystemTime::now();
-    if lib_data.cell.is_empty() {
-        info!("[Lib2Json] INFO detect library liberty file, only library json will be dumped");
-        lib_data.dump_library(&destinate)?;
+    if liberty_data.cell.is_empty() {
+        info!("Detect library liberty file, only library json will be dumped");
+        liberty_data.library.dump(&destinate)?;
     } else {
-        info!("[Lib2Json] INFO detect complete liberty file, library and cell json will be dumped");
-        lib_data.dump_library(&destinate)?;
-        lib_data.dump_cell(&destinate)?;
+        info!("Detect complete liberty file, library and cell json will be dumped");
+        liberty_data.library.dump(&destinate)?;
+        for cell in liberty_data.cell {
+            cell.dump(&destinate)?;
+        }
     }
     let passed = SystemTime::now();
-    info!(
-        "[Lib2Json] INFO Finish Dumping, Time Used:{:?}",
-        passed.duration_since(now)
-    );
+    info!("Finish Dumping, Time Used:{:?}", passed.duration_since(now));
     Ok(())
 }

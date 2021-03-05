@@ -2,7 +2,6 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until};
 use nom::character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, one_of};
 use nom::combinator::{map, map_res, opt, recognize, value};
-use nom::error::context;
 
 use nom::multi::{many0, many1, separated_list1};
 
