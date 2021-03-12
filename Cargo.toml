@@ -12,3 +12,7 @@ json = "0.12.4"
 clap = "2.33"
 pretty_env_logger = "0.4"
 log = "0.4"
+
+[lib]
+name = "liberty2json"
+path = "src/lib.rs"
