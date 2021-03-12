@@ -59,6 +59,11 @@ cargo install liberty2json --git https://github.com/erihsu/liberty2json --branch
 ```shell
 liberty2json -o output_folder someliberty.lib 
 ```
+with tracing log
+```shell
+RUST_LOG=trace liberty2json -o output_folder someliberty.lib 
+```
+
 if you not specify output_folder path, tool use the path of liberty file to generate json.
 
 
