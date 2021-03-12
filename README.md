@@ -52,7 +52,7 @@ In **attribute**, the value can be descripted in different ways, like simple str
 
 * Install liberty2json
 ```shell
-cargo install liberty2json
+cargo install liberty2json --git https://github.com/erihsu/liberty2json
 ```
 
 * Convert liberty
