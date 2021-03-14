@@ -4,7 +4,7 @@ use super::{
     group_parser::*,
 };
 use crate::{ast::LibraryType, CellType, LibRes, Liberty};
-
+use json::JsonValue;
 use nom::branch::alt;
 
 use nom::{
@@ -30,12 +30,17 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
         ),
     ))(input)
     .map(|(res, data)| {
+        let mut json_data = JsonValue::new_object();
+        for attr_grp in (data.2).0 {
+            json_data[attr_grp.0] = attr_grp.1;
+        }
+
         (
             res,
             Liberty {
                 library: LibraryType {
                     name: data.1.to_string(),
-                    lib_attribute: (data.2).0,
+                    lib_attribute: json_data,
                 },
                 cell: (data.2).1,
             },
@@ -61,11 +66,15 @@ pub fn cell_parser(input: &str) -> LibRes<&str, CellType> {
         ),
     ))(input)
     .map(|(res, data)| {
+        let mut json_data = JsonValue::new_object();
+        for attr_grp in data.2 {
+            json_data[attr_grp.0] = attr_grp.1;
+        }
         (
             res,
             CellType {
                 name: data.1.to_string(),
-                cell_attribute: data.2,
+                cell_attribute: json_data,
             },
         )
     })

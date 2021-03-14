@@ -10,12 +10,12 @@ use std::{
 #[derive(Clone)]
 pub struct LibraryType {
     pub name: String,
-    pub lib_attribute: Vec<JsonValue>,
+    pub lib_attribute: JsonValue,
 }
 
 pub struct CellType {
     pub name: String,
-    pub cell_attribute: Vec<JsonValue>,
+    pub cell_attribute: JsonValue,
 }
 
 pub struct Liberty {

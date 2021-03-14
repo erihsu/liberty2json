@@ -17,14 +17,9 @@ fn complex_attribute(input: &str) -> LibRes<&str, (&str, JsonValue)> {
     terminated(tuple((tstring, complex_attribue_value)), ws(tag(";")))(input)
 }
 
-pub fn attribute_parser(input: &str) -> LibRes<&str, JsonValue> {
+pub fn attribute_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
     context(
         "Attribute Parser",
         alt((complex_attribute, simple_attribute)),
     )(input)
-    .map(|(res, data)| {
-        let mut json_data = JsonValue::new_object();
-        json_data[data.0] = data.1;
-        (res, json_data)
-    })
 }

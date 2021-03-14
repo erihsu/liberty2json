@@ -13,7 +13,7 @@ use nom::{
 };
 
 // assume named group only contain unnamed group
-pub fn named_group_parser(input: &str) -> LibRes<&str, JsonValue> {
+pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
     context(
         "Named Group Parser",
         tuple((
@@ -27,20 +27,24 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, JsonValue> {
     )(input)
     .map(|(res, data)| {
         let mut json_data = JsonValue::new_object();
-        json_data["class"] = JsonValue::String((data.0).0.to_string());
+        // json_data["class"] = JsonValue::String((data.0).0.to_string());
         json_data["name"] = JsonValue::String((data.0).1.to_string());
         if !(data.1).0.is_empty() {
-            json_data["attribue"] = JsonValue::Array((data.1).0);
+            for attr in (data.1).0 {
+                json_data[attr.0] = attr.1;
+            }
         }
         if !(data.1).1.is_empty() {
-            json_data["group"] = JsonValue::Array((data.1).1);
+            for grp in (data.1).1 {
+                json_data[grp.0] = grp.1;
+            }
         }
 
-        (res, json_data)
+        (res, ((data.0).0, json_data))
     })
 }
 
-pub fn unnamed_group_parser(input: &str) -> LibRes<&str, JsonValue> {
+pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
     context(
         "UnNamed Group Parser",
         tuple((
@@ -57,14 +61,18 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, JsonValue> {
     )(input)
     .map(|(res, data)| {
         let mut json_data = JsonValue::new_object();
-        json_data["class"] = JsonValue::String((data.0).to_string());
+        // json_data["class"] = JsonValue::String((data.0).to_string());
         if !(data.1).0.is_empty() {
-            json_data["attribue"] = JsonValue::Array((data.1).0);
+            for attr in (data.1).0 {
+                json_data[attr.0] = attr.1;
+            }
         }
         if !(data.1).1.is_empty() {
-            json_data["group"] = JsonValue::Array((data.1).1);
+            for grp in (data.1).1 {
+                json_data[grp.0] = grp.1;
+            }
         }
-        (res, json_data)
+        (res, (data.0, json_data))
     })
 }
 
