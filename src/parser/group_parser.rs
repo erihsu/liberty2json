@@ -2,8 +2,7 @@ use super::{
     attribute_parser::attribute_parser,
     base::{tstring, ws},
 };
-use crate::LibRes;
-use json::JsonValue;
+use crate::{LibRes, LibertyJson};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
@@ -11,9 +10,10 @@ use nom::{
     multi::many0,
     sequence::{delimited, terminated, tuple},
 };
+use serde_json::map::Map;
 
 // assume named group only contain unnamed group
-pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
+pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
         "Named Group Parser",
         tuple((
@@ -26,9 +26,8 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
         )),
     )(input)
     .map(|(res, data)| {
-        let mut json_data = JsonValue::new_object();
-        // json_data["class"] = JsonValue::String((data.0).0.to_string());
-        json_data["name"] = JsonValue::String((data.0).1.to_string());
+        let mut json_data = Map::new();
+        json_data.insert("name".into(), LibertyJson::from((data.0).1.to_string()));
         if !(data.1).0.is_empty() {
             for attr in (data.1).0 {
                 json_data[attr.0] = attr.1;
@@ -40,11 +39,11 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
             }
         }
 
-        (res, ((data.0).0, json_data))
+        (res, ((data.0).0, LibertyJson::from(json_data)))
     })
 }
 
-pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
+pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
         "UnNamed Group Parser",
         tuple((
@@ -60,8 +59,7 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
         )),
     )(input)
     .map(|(res, data)| {
-        let mut json_data = JsonValue::new_object();
-        // json_data["class"] = JsonValue::String((data.0).to_string());
+        let mut json_data = Map::new();
         if !(data.1).0.is_empty() {
             for attr in (data.1).0 {
                 json_data[attr.0] = attr.1;
@@ -72,18 +70,9 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, JsonValue)> {
                 json_data[grp.0] = grp.1;
             }
         }
-        (res, (data.0, json_data))
+        (res, (data.0, LibertyJson::from(json_data)))
     })
 }
-
-// pub fn group_parser(input: &str) -> LibRes<&str, JsonValue> {
-//     context(
-//         "Group Parser",
-//         alt((named_group_parser, unnamed_group_parser)),
-//     )(input)
-// }
-
-// pub type liberty_parser = group_parser;
 
 #[cfg(test)]
 mod tests {

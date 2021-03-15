@@ -3,15 +3,15 @@ use super::{
     base::{lib_comment, tstring, ws},
     group_parser::*,
 };
-use crate::{ast::LibraryType, CellType, LibRes, Liberty};
-use json::JsonValue;
-use nom::branch::alt;
+use crate::{ast::LibraryType, CellType, LibRes, Liberty, LibertyJson};
 
 use nom::{
+    branch::alt,
     bytes::complete::tag,
     multi::many0,
     sequence::{delimited, preceded, tuple},
 };
+use serde_json::map::Map;
 
 pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
     tuple((
@@ -30,9 +30,10 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
         ),
     ))(input)
     .map(|(res, data)| {
-        let mut json_data = JsonValue::new_object();
+        let mut json_data = Map::new();
+
         for attr_grp in (data.2).0 {
-            json_data[attr_grp.0] = attr_grp.1;
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
         }
 
         (
@@ -40,7 +41,7 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
             Liberty {
                 library: LibraryType {
                     name: data.1.to_string(),
-                    lib_attribute: json_data,
+                    lib_attribute: LibertyJson::from(json_data),
                 },
                 cell: (data.2).1,
             },
@@ -66,15 +67,15 @@ pub fn cell_parser(input: &str) -> LibRes<&str, CellType> {
         ),
     ))(input)
     .map(|(res, data)| {
-        let mut json_data = JsonValue::new_object();
+        let mut json_data = Map::new();
         for attr_grp in data.2 {
-            json_data[attr_grp.0] = attr_grp.1;
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
         }
         (
             res,
             CellType {
                 name: data.1.to_string(),
-                cell_attribute: json_data,
+                cell_attribute: LibertyJson::from(json_data),
             },
         )
     })

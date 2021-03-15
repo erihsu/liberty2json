@@ -1,5 +1,4 @@
-use crate::liberty_parser;
-use json::JsonValue;
+use crate::{liberty_parser, LibertyJson};
 
 use nom::{error::convert_error, Err};
 use std::{
@@ -10,12 +9,12 @@ use std::{
 #[derive(Clone)]
 pub struct LibraryType {
     pub name: String,
-    pub lib_attribute: JsonValue,
+    pub lib_attribute: LibertyJson,
 }
 
 pub struct CellType {
     pub name: String,
-    pub cell_attribute: JsonValue,
+    pub cell_attribute: LibertyJson,
 }
 
 pub struct Liberty {

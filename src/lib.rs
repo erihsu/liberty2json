@@ -1,14 +1,15 @@
+use log::info;
+use nom::{error::VerboseError, IResult};
+use serde_json::Value;
+use std::{fs, path::Path, time::*};
+
+pub use ast::{CellType, Liberty, LibraryType};
+pub use parser::liberty_parser::*;
+
 mod ast;
 mod dump;
 mod parser;
-pub use ast::{CellType, Liberty, LibraryType};
-use log::info;
-use nom::{error::VerboseError, IResult};
-use std::fs;
-use std::path::Path;
-use std::time::*;
-pub type LibRes<T, U> = IResult<T, U, VerboseError<T>>;
-pub use parser::liberty_parser::*;
+
 pub fn convert_lib<P>(source: P, destinate: P) -> std::io::Result<()>
 where
     P: AsRef<Path>,
@@ -34,3 +35,6 @@ where
     info!("Finish Dumping, Time Used:{:?}", passed.duration_since(now));
     Ok(())
 }
+
+pub type LibertyJson = Value;
+pub type LibRes<T, U> = IResult<T, U, VerboseError<T>>;

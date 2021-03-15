@@ -1,14 +1,13 @@
-use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until};
-use nom::character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, one_of};
-use nom::combinator::{map, map_res, opt, recognize, value};
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_until},
+    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, one_of},
+    combinator::{map, map_res, opt, recognize, value},
+    multi::{many0, many1, separated_list1},
+    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+};
 
-use nom::multi::{many0, many1, separated_list1};
-
-use crate::LibRes;
-use json::JsonValue;
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
-use std::str;
+use crate::{LibRes, LibertyJson};
 use std::str::FromStr;
 
 // basic parse. Independent from def_parser but it's the most basic parser in def_parser.
@@ -131,35 +130,36 @@ pub fn lib_comment(input: &str) -> LibRes<&str, ()> {
     )(input)
 }
 
-pub fn simple_attribute_value(input: &str) -> LibRes<&str, JsonValue> {
+pub fn simple_attribute_value(input: &str) -> LibRes<&str, LibertyJson> {
     alt((
-        map(qstring, |s| JsonValue::from(s)),
-        map(tstring, |s| JsonValue::from(s)),
-        map(ustring, |s| JsonValue::from(s)),
-        map(float, |s| JsonValue::from(s)),
+        map(qstring, |s| LibertyJson::from(s)),
+        map(tstring, |s| LibertyJson::from(s)),
+        map(ustring, |s| LibertyJson::from(s)),
+        map(float, |s| LibertyJson::from(s)),
     ))(input)
 }
 
-pub fn complex_attribue_value(input: &str) -> LibRes<&str, JsonValue> {
+pub fn complex_attribue_value(input: &str) -> LibRes<&str, LibertyJson> {
+    use serde_json::map::Map;
     delimited(
         ws(tag("(")),
         alt((
-            map(float_array, |res| JsonValue::from(res)),
-            map(float_list_no_breakline, |res| JsonValue::from(res)),
-            map(float_list, |res| JsonValue::from(res)),
+            map(float_array, |res| LibertyJson::from(res)),
+            map(float_list_no_breakline, |res| LibertyJson::from(res)),
+            map(float_list, |res| LibertyJson::from(res)),
             map(separated_pair(tstring, tag(","), float), |res| {
-                let mut json_obj = JsonValue::new_object();
-                json_obj[res.0] = res.1.into();
-                json_obj
+                let mut json_obj = Map::new();
+                json_obj.insert(res.0.to_string(), res.1.into());
+                LibertyJson::from(json_obj)
             }),
             map(separated_pair(float, tag(","), float), |res| {
-                JsonValue::Array(vec![JsonValue::from(res.0), JsonValue::from(res.1)])
+                LibertyJson::Array(vec![LibertyJson::from(res.0), LibertyJson::from(res.1)])
             }),
             map(
                 recognize(separated_pair(number, tag(","), tstring)),
-                |res| JsonValue::String(res.to_string()),
+                |res| LibertyJson::from(res.to_string()),
             ),
-            map(tstring, |res| JsonValue::String(res.to_string())),
+            map(tstring, |res| LibertyJson::from(res.to_string())),
         )),
         ws(tag(")")),
     )(input)
