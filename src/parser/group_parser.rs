@@ -30,12 +30,12 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
         json_data.insert("name".into(), LibertyJson::from((data.0).1.to_string()));
         if !(data.1).0.is_empty() {
             for attr in (data.1).0 {
-                json_data[attr.0] = attr.1;
+                json_data.insert(attr.0.to_string(), attr.1);
             }
         }
         if !(data.1).1.is_empty() {
             for grp in (data.1).1 {
-                json_data[grp.0] = grp.1;
+                json_data.insert(grp.0.to_string(), grp.1);
             }
         }
 
@@ -62,12 +62,12 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
         let mut json_data = Map::new();
         if !(data.1).0.is_empty() {
             for attr in (data.1).0 {
-                json_data[attr.0] = attr.1;
+                json_data.insert(attr.0.to_string(), attr.1);
             }
         }
         if !(data.1).1.is_empty() {
             for grp in (data.1).1 {
-                json_data[grp.0] = grp.1;
+                json_data.insert(grp.0.to_string(), grp.1);
             }
         }
         (res, (data.0, LibertyJson::from(json_data)))
@@ -316,6 +316,6 @@ mod tests {
                  \"-0.38821, -0.35143, -0.23499, -0.092728, 0.059553\");
         }
       }";
-        let (_, _) = named_group_parser(input).unwrap();
+        let (_, _) = unnamed_group_parser(input).unwrap();
     }
 }
