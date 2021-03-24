@@ -8,6 +8,7 @@ use nom::{
 };
 
 use crate::{LibRes, LibertyJson};
+use serde_json::map::Map;
 use std::str::FromStr;
 
 // basic parse. Independent from def_parser but it's the most basic parser in def_parser.
@@ -112,6 +113,10 @@ pub fn float_array(input: &str) -> LibRes<&str, Vec<Vec<f32>>> {
     separated_list1(ws(tag(",\\")), float_list_no_breakline)(input)
 }
 
+pub fn float_pair(input: &str) -> LibRes<&str, (f32, f32)> {
+    separated_pair(float, tag(","), float)(input)
+}
+
 pub fn number(input: &str) -> LibRes<&str, i32> {
     ws(map_res(
         recognize(pair(opt(alt((tag("+"), tag("-")))), digit1)),
@@ -140,26 +145,38 @@ pub fn simple_attribute_value(input: &str) -> LibRes<&str, LibertyJson> {
 }
 
 pub fn complex_attribue_value(input: &str) -> LibRes<&str, LibertyJson> {
-    use serde_json::map::Map;
     delimited(
         ws(tag("(")),
         alt((
             map(float_array, |res| LibertyJson::from(res)),
             map(float_list_no_breakline, |res| LibertyJson::from(res)),
             map(float_list, |res| LibertyJson::from(res)),
+            map(float_pair, |res| LibertyJson::from(vec![res.0, res.1])),
+        )),
+        ws(tag(")")),
+    )(input)
+}
+
+// very_complex_attribute_value is only used in liberty header to represent more complex representation
+pub fn very_complex_attribute_value(input: &str) -> LibRes<&str, LibertyJson> {
+    delimited(
+        ws(tag("(")),
+        alt((
             map(separated_pair(tstring, tag(","), float), |res| {
                 let mut json_obj = Map::new();
                 json_obj.insert(res.0.to_string(), res.1.into());
                 LibertyJson::from(json_obj)
-            }),
-            map(separated_pair(float, tag(","), float), |res| {
-                LibertyJson::Array(vec![LibertyJson::from(res.0), LibertyJson::from(res.1)])
-            }),
-            map(
-                recognize(separated_pair(number, tag(","), tstring)),
-                |res| LibertyJson::from(res.to_string()),
-            ),
-            map(tstring, |res| LibertyJson::from(res.to_string())),
+            }), // case 3: mapping representation
+            map(separated_list1(tag(","), tstring), |res| {
+                let json_obj: Vec<String> = res.iter().map(|x| x.to_string()).collect();
+                LibertyJson::from(json_obj)
+            }), // case 2: list of string
+            map(separated_pair(float, tag(","), tstring), |res| {
+                let data = format!("{}{}", res.0, res.1);
+                LibertyJson::from(data)
+            }), // case 4: unit representation, ie (1,s), (0.01,v)
+            map(qstring, |res| LibertyJson::from(res)), // case 1: quoted representation, ie "axsa_xx, 123"
+            map(tstring, |res| LibertyJson::from(res.to_string())), // case 5: simple string representation
         )),
         ws(tag(")")),
     )(input)

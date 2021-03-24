@@ -1,5 +1,5 @@
 use super::{
-    attribute_parser::attribute_parser,
+    attribute_parser::group_attribute_parser,
     base::{tstring, ws},
 };
 use crate::{LibRes, LibertyJson};
@@ -20,7 +20,7 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
             tuple((tstring, delimited(tag("("), take_until(")"), tag(")")))),
             delimited(
                 ws(tag("{")),
-                tuple((many0(attribute_parser), many0(unnamed_group_parser))),
+                tuple((many0(group_attribute_parser), many0(unnamed_group_parser))),
                 ws(tag("}")),
             ),
         )),
@@ -51,7 +51,7 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
             delimited(
                 ws(tag("{")),
                 tuple((
-                    many0(attribute_parser),
+                    many0(group_attribute_parser),
                     many0(alt((unnamed_group_parser, named_group_parser))),
                 )),
                 ws(tag("}")),
@@ -317,5 +317,17 @@ mod tests {
         }
       }";
         let (_, _) = unnamed_group_parser(input).unwrap();
+    }
+
+    #[test]
+    fn test_group_7() {
+        let input = "  wire_load(\"Zero\") {
+    resistance : 0.00397143;
+    capacitance : 0.000206;
+    area : 0;
+    slope : 0.0;
+    fanout_length (1, 0.0);
+  }";
+        let (_, _) = named_group_parser(input).unwrap();
     }
 }

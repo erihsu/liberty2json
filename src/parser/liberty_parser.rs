@@ -23,7 +23,7 @@ pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
         delimited(
             ws(tag("{")),
             tuple((
-                many0(alt((attribute_parser, named_group_parser))),
+                many0(alt((header_attribute_parser, named_group_parser))),
                 many0(cell_parser),
             )),
             ws(tag("}")),
@@ -59,7 +59,7 @@ pub fn cell_parser(input: &str) -> LibRes<&str, CellType> {
         delimited(
             ws(tag("{")),
             many0(alt((
-                attribute_parser,
+                group_attribute_parser,
                 named_group_parser,
                 unnamed_group_parser,
             ))),

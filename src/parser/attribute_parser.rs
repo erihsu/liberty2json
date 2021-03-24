@@ -1,4 +1,6 @@
-use super::base::{complex_attribue_value, simple_attribute_value, tstring, ws};
+use super::base::{
+    complex_attribue_value, simple_attribute_value, tstring, very_complex_attribute_value, ws,
+};
 use crate::{LibRes, LibertyJson};
 use nom::{
     branch::alt,
@@ -18,9 +20,20 @@ fn complex_attribute(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     terminated(tuple((tstring, complex_attribue_value)), ws(tag(";")))(input)
 }
 
-pub fn attribute_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
+fn very_complex_attribute(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
+    terminated(tuple((tstring, very_complex_attribute_value)), ws(tag(";")))(input)
+}
+
+pub fn group_attribute_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
-        "Attribute Parser",
+        "Group Attribute Parser",
         alt((complex_attribute, simple_attribute)),
+    )(input)
+}
+
+pub fn header_attribute_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
+    context(
+        "Header Attribute Parser",
+        alt((very_complex_attribute, simple_attribute)),
     )(input)
 }
