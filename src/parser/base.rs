@@ -82,6 +82,10 @@ pub fn float(input: &str) -> LibRes<&str, f32> {
     ))(input)
 }
 
+pub fn qfloat(input: &str) -> LibRes<&str, f32> {
+    delimited(tag("\""), float, tag("\""))(input)
+}
+
 // lookup table value and its index
 pub fn float_list(input: &str) -> LibRes<&str, Vec<f32>> {
     delimited(

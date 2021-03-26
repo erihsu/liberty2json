@@ -1,81 +1,67 @@
 use super::{
     attribute_parser::*,
     base::{lib_comment, tstring, ws},
+    cell_parser::*,
     group_parser::*,
 };
-use crate::{ast::LibraryType, CellType, LibRes, Liberty, LibertyJson};
+use crate::{LibRes, Liberty, LibertyJson};
 
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    multi::many0,
+    combinator::map,
+    error::context,
+    multi::{many0, many1},
     sequence::{delimited, preceded, tuple},
 };
 use serde_json::map::Map;
 
-pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
-    tuple((
-        many0(lib_comment),
-        preceded(
-            ws(tag("library")),
-            delimited(ws(tag("(")), tstring, ws(tag(")"))),
-        ),
-        delimited(
-            ws(tag("{")),
-            tuple((
-                many0(alt((header_attribute_parser, named_group_parser))),
-                many0(cell_parser),
-            )),
-            ws(tag("}")),
-        ),
-    ))(input)
-    .map(|(res, data)| {
-        let mut json_data = Map::new();
+enum LibertyElemEnum<'a> {
+    Attribute((&'a str, LibertyJson)),
+    Group((&'a str, LibertyJson)),
+    Cell((&'a str, LibertyJson)),
+}
 
-        for attr_grp in (data.2).0 {
-            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+use std::collections::HashMap;
+pub fn liberty_parser(input: &str) -> LibRes<&str, Liberty> {
+    context(
+        "Liberty Parser",
+        tuple((
+            many0(lib_comment),
+            preceded(
+                ws(tag("library")),
+                delimited(ws(tag("(")), tstring, ws(tag(")"))),
+            ),
+            delimited(
+                ws(tag("{")),
+                many1(alt((
+                    map(cell_parser, |x| LibertyElemEnum::Cell(x)),
+                    map(header_group_parser, |x| LibertyElemEnum::Group(x)),
+                    map(header_attribute_parser, |x| LibertyElemEnum::Attribute(x)),
+                ))),
+                ws(tag("}")),
+            ),
+        )),
+    )(input)
+    .map(|(res, data)| {
+        let mut attrs = Map::new();
+        let mut grps = Map::new();
+        let mut cells = HashMap::new();
+        for d in data.2 {
+            match d {
+                LibertyElemEnum::Cell(u) => cells.insert(u.0.to_string(), u.1),
+                LibertyElemEnum::Group(u) => grps.insert(u.0.to_string(), u.1),
+                LibertyElemEnum::Attribute(u) => attrs.insert(u.0.to_string(), u.1),
+            };
         }
 
         (
             res,
             Liberty {
-                library: LibraryType {
-                    name: data.1.to_string(),
-                    lib_attribute: LibertyJson::from(json_data),
-                },
-                cell: (data.2).1,
-            },
-        )
-    })
-}
-
-pub fn cell_parser(input: &str) -> LibRes<&str, CellType> {
-    tuple((
-        many0(lib_comment),
-        preceded(
-            ws(tag("cell")),
-            delimited(ws(tag("(")), tstring, ws(tag(")"))),
-        ),
-        delimited(
-            ws(tag("{")),
-            many0(alt((
-                group_attribute_parser,
-                named_group_parser,
-                unnamed_group_parser,
-            ))),
-            ws(tag("}")),
-        ),
-    ))(input)
-    .map(|(res, data)| {
-        let mut json_data = Map::new();
-        for attr_grp in data.2 {
-            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
-        }
-        (
-            res,
-            CellType {
                 name: data.1.to_string(),
-                cell_attribute: LibertyJson::from(json_data),
+                single_attribute: LibertyJson::from(attrs),
+                group_attribute: LibertyJson::from(grps),
+                cell: cells,
             },
         )
     })

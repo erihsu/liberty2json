@@ -2,24 +2,16 @@ use crate::{liberty_parser, LibertyJson};
 
 use nom::{error::convert_error, Err};
 use std::{
+    collections::HashMap,
     io::{Error, ErrorKind},
     str::FromStr,
 };
 
-#[derive(Clone)]
-pub struct LibraryType {
-    pub name: String,
-    pub lib_attribute: LibertyJson,
-}
-
-pub struct CellType {
-    pub name: String,
-    pub cell_attribute: LibertyJson,
-}
-
 pub struct Liberty {
-    pub library: LibraryType,
-    pub cell: Vec<CellType>,
+    pub name: String,
+    pub single_attribute: LibertyJson,
+    pub group_attribute: LibertyJson,
+    pub cell: HashMap<String, LibertyJson>,
 }
 
 impl FromStr for Liberty {

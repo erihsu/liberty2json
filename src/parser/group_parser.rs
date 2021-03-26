@@ -2,22 +2,49 @@ use super::{
     attribute_parser::group_attribute_parser,
     base::{tstring, ws},
 };
+use crate::parser::base::qstring;
 use crate::{LibRes, LibertyJson};
+
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until},
+    bytes::complete::tag,
     error::context,
     multi::many0,
     sequence::{delimited, terminated, tuple},
 };
 use serde_json::map::Map;
 
+// header group is named group, and only contain attributes
+pub fn header_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
+    context(
+        "Named Group Parser",
+        tuple((
+            tuple((
+                tstring,
+                delimited(tag("("), alt((qstring, tstring)), tag(")")),
+            )),
+            delimited(ws(tag("{")), many0(group_attribute_parser), ws(tag("}"))),
+        )),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        let mut result = Map::new();
+        for attr in data.1 {
+            json_data.insert(attr.0.to_string(), attr.1);
+        }
+        result.insert(((data.0).1).into(), LibertyJson::from(json_data));
+        // group attribute is unique, so insert directly
+
+        (res, ((data.0).0, LibertyJson::from(result)))
+    })
+}
+
 // assume named group only contain unnamed group
 pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
         "Named Group Parser",
         tuple((
-            tuple((tstring, delimited(tag("("), take_until(")"), tag(")")))),
+            tuple((tstring, delimited(tag("("), tstring, tag(")")))),
             delimited(
                 ws(tag("{")),
                 tuple((many0(group_attribute_parser), many0(unnamed_group_parser))),
@@ -27,19 +54,24 @@ pub fn named_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     )(input)
     .map(|(res, data)| {
         let mut json_data = Map::new();
-        json_data.insert("name".into(), LibertyJson::from((data.0).1.to_string()));
+        let mut result = Map::new();
+        // json_data.insert("name".into(), LibertyJson::from((data.0).1.to_string()));
+        // group attribute is unique, so insert directly
         if !(data.1).0.is_empty() {
             for attr in (data.1).0 {
                 json_data.insert(attr.0.to_string(), attr.1);
             }
         }
+        // group duplicated group, like timing(),power()
         if !(data.1).1.is_empty() {
-            for grp in (data.1).1 {
-                json_data.insert(grp.0.to_string(), grp.1);
+            // first check similarity
+            let unique_groups = merge_same_group((data.1).1);
+            for grp in unique_groups {
+                json_data.insert(grp.0, grp.1);
             }
         }
-
-        (res, ((data.0).0, LibertyJson::from(json_data)))
+        result.insert((data.0).1.into(), LibertyJson::from(json_data));
+        (res, ((data.0).0, LibertyJson::from(result)))
     })
 }
 
@@ -66,12 +98,43 @@ pub fn unnamed_group_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
             }
         }
         if !(data.1).1.is_empty() {
-            for grp in (data.1).1 {
-                json_data.insert(grp.0.to_string(), grp.1);
+            let unique_groups = merge_same_group((data.1).1);
+            for grp in unique_groups {
+                json_data.insert(grp.0, grp.1);
             }
         }
         (res, (data.0, LibertyJson::from(json_data)))
     })
+}
+
+use std::collections::HashSet;
+// check duplicated key situation in all (key,value), return ifself if no duplicated key,
+// else merge all values with duplicated key into new value and return non-duplicated key (key,value)s
+pub fn merge_same_group(groups: Vec<(&str, LibertyJson)>) -> Vec<(String, LibertyJson)> {
+    let mut key_set = HashSet::new();
+    let mut last_insert_fail = false;
+    let mut need_merge_group_name = String::new();
+    let mut result = Vec::new();
+    let mut need_merge = Vec::new();
+    for (k, v) in groups {
+        if key_set.insert(k) {
+            result.push((k.to_string(), v));
+            if last_insert_fail == true {
+                result.push((
+                    need_merge_group_name.clone(),
+                    LibertyJson::from(need_merge.clone()),
+                ));
+                need_merge = Vec::new();
+            }
+        } else {
+            last_insert_fail = true;
+            need_merge.push(v);
+            if last_insert_fail == false {
+                need_merge_group_name = k.to_string();
+            }
+        }
+    }
+    result
 }
 
 #[cfg(test)]
@@ -328,6 +391,28 @@ mod tests {
     slope : 0.0;
     fanout_length (1, 0.0);
   }";
-        let (_, _) = named_group_parser(input).unwrap();
+        let (_, _) = header_group_parser(input).unwrap();
+    }
+
+    #[test]
+    fn test_group_8() {
+        let input = "      internal_power() { 
+        when : \"!B&!CK&!SE&!SI\" ; 
+
+        fall_power(pwr_tin_7) { 
+          index_1(\"0.0021, 0.0242957, 0.102208, 0.250991, 0.48279, \
+                  0.808029, 1.236\");
+          values(\"0.000375434, 0.000376121, 0.000385726, 0.000389842, \
+                 0.000392275, 0.000392902, 0.000393199\");
+        }
+
+        rise_power(pwr_tin_7) { 
+          index_1(\"0.0021, 0.0242957, 0.102208, 0.250991, 0.48279, \
+                  0.808029, 1.236\");
+          values(\"-0.000107745, -0.000110585, -0.000111607, \
+                 -0.000112191, -0.000112566, -0.000112543, -0.000112614\");
+        }
+      }";
+        let (_, _) = unnamed_group_parser(input).unwrap();
     }
 }
