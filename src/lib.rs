@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::{fs, path::Path, time::*};
 
 pub use ast::Liberty;
+pub use parser::cell_parser::*;
 pub use parser::liberty_parser::*;
 
 mod ast;

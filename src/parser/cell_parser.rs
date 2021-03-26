@@ -27,7 +27,7 @@ pub fn cell_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
             ),
             delimited(
                 ws(tag("{")),
-                tuple((
+                permutation((
                     many0(simple_attribute),
                     leakage_power_parser,
                     pgpin_parser,
@@ -71,11 +71,11 @@ fn leakage_power_parser(input: &str) -> LibRes<&str, LibertyJson> {
                         qstring,
                         ws(tag(";")),
                     ),
-                    delimited(
+                    opt(delimited(
                         tuple((ws(tag("when")), ws(tag(":")))),
                         qstring,
                         ws(tag(";")),
-                    ),
+                    )),
                     delimited(
                         tuple((ws(tag("value")), ws(tag(":")))),
                         qfloat,
@@ -90,7 +90,11 @@ fn leakage_power_parser(input: &str) -> LibRes<&str, LibertyJson> {
         let mut json_data = Map::new();
         let mut result = Map::new();
         data.iter().for_each(|x| {
-            let idx = format!("{},{}", x.0, x.1);
+            let idx = if let Some(condition) = x.1 {
+                format!("{},{}", x.0, condition)
+            } else {
+                format!("{}", x.0)
+            };
             let value = x.2;
             json_data.insert(idx, LibertyJson::from(value));
         });
