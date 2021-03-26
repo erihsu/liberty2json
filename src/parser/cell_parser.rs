@@ -27,7 +27,7 @@ pub fn cell_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
             ),
             delimited(
                 ws(tag("{")),
-                permutation((
+                tuple((
                     many0(simple_attribute),
                     leakage_power_parser,
                     pgpin_parser,
