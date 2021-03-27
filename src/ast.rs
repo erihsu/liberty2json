@@ -1,4 +1,4 @@
-use crate::{liberty_parser, LibertyJson};
+use crate::{parser::liberty_parser::liberty_parser, LibertyJson};
 
 use nom::{error::convert_error, Err};
 use std::{
@@ -9,9 +9,14 @@ use std::{
 
 pub struct Liberty {
     pub name: String,
-    pub single_attribute: LibertyJson,
-    pub group_attribute: LibertyJson,
-    pub cell: HashMap<String, LibertyJson>,
+    pub single_attribute: HashMap<String, LibertyJson>,
+    pub group_attribute: HashMap<String, LibertyJson>,
+    pub ffs: HashMap<String, LibertyJson>,
+    pub latchs: HashMap<String, LibertyJson>,
+    pub fillers: HashMap<String, LibertyJson>,
+    pub icgs: HashMap<String, LibertyJson>,
+    pub logics: HashMap<String, LibertyJson>,
+    pub testffs: HashMap<String, LibertyJson>,
 }
 
 impl FromStr for Liberty {

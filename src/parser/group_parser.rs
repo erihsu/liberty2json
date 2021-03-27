@@ -1,8 +1,8 @@
 use super::{
     attribute_parser::group_attribute_parser,
-    base::{tstring, ws},
+    base::{qstring, tstring, ws},
 };
-use crate::parser::base::qstring;
+
 use crate::{LibRes, LibertyJson};
 
 use nom::{

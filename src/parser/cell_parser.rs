@@ -1,23 +1,33 @@
 use super::{
     attribute_parser::*,
-    base::{tstring, ws},
+    base::{qfloat, qstring, tstring, ws},
+    group_parser::named_group_parser,
 };
-use crate::parser::base::{qfloat, qstring};
-use crate::parser::group_parser::named_group_parser;
+
 use crate::{LibRes, LibertyJson};
-use nom::branch::permutation;
 
 use nom::{
-    branch::alt,
+    branch::{alt, permutation},
     bytes::complete::{tag, take_until},
-    combinator::{opt, value},
+    combinator::{map, opt, value},
     error::context,
-    multi::{many0, many1},
+    multi::many1,
     sequence::{delimited, preceded, tuple},
 };
 use serde_json::map::Map;
 
-pub fn cell_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
+pub enum CellEnum {
+    // all commonly have header attribute, leakage power
+    // but differ in other named group
+    Filler(LibertyJson), // only pg pin
+    FF(LibertyJson),     // pg pin, pin,ff
+    Latch(LibertyJson),  // pg pin, pin,latch
+    ICG(LibertyJson),    // pg pin, pin, statetable
+    Logic(LibertyJson),  // pg pin,pin
+    TestFF(LibertyJson), // pg pin, pin, testcell,ff
+}
+
+pub fn cell_parser(input: &str) -> LibRes<&str, (&str, CellEnum)> {
     context(
         "Cell Parser",
         tuple((
@@ -25,43 +35,314 @@ pub fn cell_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
                 ws(tag("cell")),
                 delimited(ws(tag("(")), tstring, ws(tag(")"))),
             ),
-            delimited(
-                ws(tag("{")),
-                permutation((
-                    many0(simple_attribute),
-                    leakage_power_parser,
-                    pgpin_parser,
-                    pin_parser,
-                    opt(test_cell_parser),
-                    opt(ff_parser),
-                )),
-                ws(tag("}")),
-            ),
+            alt((
+                map(filler_cell_section, |x| CellEnum::Filler(x)),
+                map(ff_cell_section, |x| CellEnum::FF(x)),
+                map(latch_cell_section, |x| CellEnum::Latch(x)),
+                map(icg_cell_section, |x| CellEnum::ICG(x)),
+                map(logic_cell_section, |x| CellEnum::Logic(x)),
+                map(testff_cell_section, |x| CellEnum::TestFF(x)),
+            )),
         )),
+    )(input)
+}
+
+fn testff_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "TestFF Cell Section",
+        delimited(
+            ws(tag("{")),
+            tuple((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+                many1(pin_parser),
+                test_cell_parser,
+                ff_parser,
+            )),
+            ws(tag("}")),
+        ),
     )(input)
     .map(|(res, data)| {
         let mut json_data = Map::new();
-        for attr_grp in (data.1).0 {
+        // header attribute
+        for attr_grp in data.0 {
             json_data.insert(attr_grp.0.to_string(), attr_grp.1);
         }
-        json_data.insert("leakage_power".into(), (data.1).1);
-        json_data.insert("pgpin".into(), (data.1).2);
-        json_data.insert("pin".into(), (data.1).3);
-        // ignore testcell and ff temparally
-        // if let Some(u) = (data.2).4 {
-        //     json_data.insert("test_cell".into(), u);
-        // }
-        // if let Some(u) = (data.2).5 {
-        //     json_data.insert("ff".into(), u);
-        // }
-        (res, (data.0, LibertyJson::from(json_data)))
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        // pin
+        let mut pins_obj = Map::new();
+        for (name, obj) in data.3 {
+            pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pin".into(), LibertyJson::from(pins_obj));
+        // test cell
+        // TODO
+        // ff
+        // TODO
+        (res, LibertyJson::from(json_data))
     })
 }
 
-fn leakage_power_parser(input: &str) -> LibRes<&str, LibertyJson> {
+fn filler_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "Filler Cell Section",
+        delimited(
+            ws(tag("{")),
+            tuple((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+            )),
+            ws(tag("}")),
+        ),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        // header attribute
+        for attr_grp in data.0 {
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+        }
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        (res, LibertyJson::from(json_data))
+    })
+}
+fn ff_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "FF Cell Section",
+        delimited(
+            ws(tag("{")),
+            tuple((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+                many1(pin_parser),
+                ff_parser,
+            )),
+            ws(tag("}")),
+        ),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        // header attribute
+        for attr_grp in data.0 {
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+        }
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        // pin
+        let mut pins_obj = Map::new();
+        for (name, obj) in data.3 {
+            pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pin".into(), LibertyJson::from(pins_obj));
+        // ff
+        // TODO
+        (res, LibertyJson::from(json_data))
+    })
+}
+fn latch_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "Latch Cell Section",
+        delimited(
+            ws(tag("{")),
+            permutation((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+                many1(pin_parser),
+                latch_parser,
+            )),
+            ws(tag("}")),
+        ),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        // header attribute
+        for attr_grp in data.0 {
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+        }
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        // pin
+        let mut pins_obj = Map::new();
+        for (name, obj) in data.3 {
+            pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pin".into(), LibertyJson::from(pins_obj));
+        // latch
+        // TODO
+        (res, LibertyJson::from(json_data))
+    })
+}
+fn icg_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "ICG Cell Section",
+        delimited(
+            ws(tag("{")),
+            tuple((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+                many1(pin_parser),
+                statetable_parser,
+            )),
+            ws(tag("}")),
+        ),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        // header attribute
+        for attr_grp in data.0 {
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+        }
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        // pin
+        let mut pins_obj = Map::new();
+        for (name, obj) in data.3 {
+            pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pin".into(), LibertyJson::from(pins_obj));
+        // statetable
+        // TODO
+        (res, LibertyJson::from(json_data))
+    })
+}
+fn logic_cell_section(input: &str) -> LibRes<&str, LibertyJson> {
+    context(
+        "Logic Cell Section",
+        delimited(
+            ws(tag("{")),
+            tuple((
+                many1(simple_attribute),
+                many1(leakage_power_parser),
+                many1(pgpin_parser),
+                many1(pin_parser),
+            )),
+            ws(tag("}")),
+        ),
+    )(input)
+    .map(|(res, data)| {
+        let mut json_data = Map::new();
+        // header attribute
+        for attr_grp in data.0 {
+            json_data.insert(attr_grp.0.to_string(), attr_grp.1);
+        }
+
+        let mut leakage_power_obj = Map::new();
+        // leakage power
+        for (related_pin, condition, value) in data.1 {
+            // TODO
+            let idx = match condition {
+                None => format!("{}", related_pin),
+                Some(k) => format!("{},{}", related_pin, k),
+            };
+            leakage_power_obj.insert(idx, LibertyJson::from(value));
+        }
+        json_data.insert("leakage_power".into(), LibertyJson::from(leakage_power_obj));
+        // pg pin
+        let mut pg_pins_obj = Map::new();
+        for (name, obj) in data.2 {
+            pg_pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pg_pin".into(), LibertyJson::from(pg_pins_obj));
+        // pin
+        let mut pins_obj = Map::new();
+        for (name, obj) in data.3 {
+            pins_obj.insert(name.into(), LibertyJson::from(obj));
+        }
+        json_data.insert("pin".into(), LibertyJson::from(pins_obj));
+        (res, LibertyJson::from(json_data))
+    })
+}
+
+fn leakage_power_parser(input: &str) -> LibRes<&str, (&str, Option<&str>, f32)> {
     context(
         "Leakage Power Parser",
-        many1(preceded(
+        preceded(
             ws(tag("leakage_power()")),
             delimited(
                 ws(tag("{")),
@@ -84,48 +365,27 @@ fn leakage_power_parser(input: &str) -> LibRes<&str, LibertyJson> {
                 )),
                 ws(tag("}")),
             ),
-        )),
+        ),
     )(input)
-    .map(|(res, data)| {
-        let mut json_data = Map::new();
-        let mut result = Map::new();
-        data.iter().for_each(|x| {
-            let idx = if let Some(condition) = x.1 {
-                format!("{},{}", x.0, condition)
-            } else {
-                format!("{}", x.0)
-            };
-            let value = x.2;
-            json_data.insert(idx, LibertyJson::from(value));
-        });
-        result.insert("leakage_power".into(), LibertyJson::from(json_data));
-        (res, LibertyJson::from(result))
-    })
 }
 
-fn pgpin_parser(input: &str) -> LibRes<&str, LibertyJson> {
+fn pgpin_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
         "PgPin Parser",
-        many1(tuple((
+        tuple((
             preceded(
                 ws(tag("pg_pin")),
                 delimited(ws(tag("(")), tstring, ws(tag(")"))),
             ),
             delimited(ws(tag("{")), many1(simple_attribute), ws(tag("}"))),
-        ))),
+        )),
     )(input)
     .map(|(res, data)| {
         let mut json_data = Map::new();
-        let mut result = Map::new();
-        data.iter().for_each(|x| {
-            let mut pg_pin_data = Map::new();
-            for attr in &x.1 {
-                pg_pin_data.insert(attr.0.into(), attr.1.clone());
-            }
-            json_data.insert(x.0.into(), LibertyJson::from(pg_pin_data));
-        });
-        result.insert("pg_pin".into(), LibertyJson::from(json_data));
-        (res, LibertyJson::from(result))
+        for (name, value) in data.1 {
+            json_data.insert(name.into(), value);
+        }
+        (res, (data.0, LibertyJson::from(json_data)))
     })
 }
 
@@ -138,6 +398,40 @@ fn ff_parser(input: &str) -> LibRes<&str, ()> {
             tuple((
                 preceded(
                     ws(tag("ff")),
+                    tuple((ws(tag("(")), take_until(")"), ws(tag(")")))),
+                ),
+                delimited(ws(tag("{")), take_until("}"), ws(tag("}"))),
+            )),
+        ),
+    )(input)
+}
+
+// regardless latch
+fn latch_parser(input: &str) -> LibRes<&str, ()> {
+    context(
+        "Latch parser",
+        value(
+            (),
+            tuple((
+                preceded(
+                    ws(tag("latch")),
+                    tuple((ws(tag("(")), take_until(")"), ws(tag(")")))),
+                ),
+                delimited(ws(tag("{")), take_until("}"), ws(tag("}"))),
+            )),
+        ),
+    )(input)
+}
+
+// regardless statetable
+fn statetable_parser(input: &str) -> LibRes<&str, ()> {
+    context(
+        "Statetable parser",
+        value(
+            (),
+            tuple((
+                preceded(
+                    ws(tag("statetable")),
                     tuple((ws(tag("(")), take_until(")"), ws(tag(")")))),
                 ),
                 delimited(ws(tag("{")), take_until("}"), ws(tag("}"))),
@@ -177,10 +471,10 @@ fn testcell_pin_parser(input: &str) -> LibRes<&str, ()> {
     )(input)
 }
 
-fn pin_parser(input: &str) -> LibRes<&str, LibertyJson> {
+fn pin_parser(input: &str) -> LibRes<&str, (&str, LibertyJson)> {
     context(
         "Pin Parser",
-        many1(tuple((
+        tuple((
             preceded(
                 ws(tag("pin")),
                 delimited(ws(tag("(")), tstring, ws(tag(")"))),
@@ -189,26 +483,27 @@ fn pin_parser(input: &str) -> LibRes<&str, LibertyJson> {
                 ws(tag("{")),
                 tuple((
                     many1(simple_attribute),
-                    internal_power_parser,
-                    timing_parser,
+                    opt(internal_power_parser),
+                    opt(timing_parser),
                 )),
                 ws(tag("}")),
             ),
-        ))),
+        )),
     )(input)
     .map(|(res, data)| {
         let mut json_data = Map::new();
-        data.iter().for_each(|x| {
-            let mut one_pin_json = Map::new();
-            let pin_data = &x.1;
-            for attr in &pin_data.0 {
-                one_pin_json.insert(attr.0.into(), attr.1.clone());
-            }
-            one_pin_json.insert("internal_power".into(), pin_data.1.clone());
-            one_pin_json.insert("timing".into(), pin_data.2.clone());
-            json_data.insert(x.0.into(), LibertyJson::from(one_pin_json));
-        });
-        (res, LibertyJson::from(json_data))
+
+        for attr in &(data.1).0 {
+            json_data.insert(attr.0.into(), attr.1.clone());
+        }
+        if let Some(u) = &(data.1).1 {
+            json_data.insert("internal_power".into(), u.clone());
+        }
+        if let Some(u) = &(data.1).2 {
+            json_data.insert("timing".into(), u.clone());
+        }
+
+        (res, (data.0, LibertyJson::from(json_data)))
     })
 }
 
@@ -593,5 +888,80 @@ mod tests {
 
     ";
         let (_, _) = cell_parser(input_str).unwrap();
+    }
+
+    #[test]
+    fn test_pin_parser() {
+        let input_str = "    pin(D) { 
+      capacitance : 0.000568567 ; 
+      direction : input ; 
+      fall_capacitance : 0.000558926 ; 
+      input_voltage : default ; 
+      max_transition : 1.236 ; 
+      related_ground_pin : VSS ; 
+      related_power_pin : VDD ; 
+      rise_capacitance : 0.000578208 ; 
+
+      internal_power() { 
+        when : \"GN\" ; 
+
+        fall_power(pwr_tin_7) { 
+          index_1(\"0.0021, 0.0242957, 0.102208, 0.250991, 0.48279, \\
+                  0.808029, 1.236\");
+          values(\"0.000735248, 0.000701274, 0.000788019, 0.00105763, \\
+                 0.00154899, 0.00227595, 0.00325115\");
+        }
+
+        rise_power(pwr_tin_7) { 
+          index_1(\"0.0021, 0.0242957, 0.102208, 0.250991, 0.48279, \\
+                  0.808029, 1.236\");
+          values(\"6.58756e-06, -2.05508e-05, 5.2263e-05, 0.000312515, \\
+                 0.000784834, 0.00148148, 0.00241563\");
+        }
+      }
+
+      timing() { 
+        related_pin : \"GN\" ; 
+        timing_type : hold_rising ; 
+
+        fall_constraint(cnst_ctin_rtin_3x3) { 
+          index_1(\"0.0021, 0.275679, 1.236\");
+          index_2(\"0.0021, 0.138657, 0.618\");
+          values(\"-0.04149, -0.0608762, -0.111108\",\\
+                 \"-0.0981496, -0.114516, -0.170428\",\\
+                 \"-0.181356, -0.196642, -0.269474\");
+        }
+
+        rise_constraint(cnst_ctin_rtin_3x3) { 
+          index_1(\"0.0021, 0.275679, 1.236\");
+          index_2(\"0.0021, 0.138657, 0.618\");
+          values(\"-0.026502, -0.0240262, -0.049728\",\\
+                 \"-0.0667696, -0.0602658, -0.0846975\",\\
+                 \"-0.0850262, -0.0775924, -0.107504\");
+        }
+      }
+
+      timing() { 
+        related_pin : \"GN\" ; 
+        timing_type : setup_rising ; 
+
+        fall_constraint(cnst_ctin_rtin_3x3) { 
+          index_1(\"0.0021, 0.275679, 1.236\");
+          index_2(\"0.0021, 0.138657, 0.618\");
+          values(\"0.04495, 0.0757762, 0.209618\",\\
+                 \"0.10172, 0.125876, 0.235128\",\\
+                 \"0.185064, 0.206492, 0.297024\");
+        }
+
+        rise_constraint(cnst_ctin_rtin_3x3) { 
+          index_1(\"0.0021, 0.275679, 1.236\");
+          index_2(\"0.0021, 0.138657, 0.618\");
+          values(\"0.034, 0.0326462, 0.078528\",\\
+                 \"0.0753296, 0.0711158, 0.112738\",\\
+                 \"0.0931762, 0.0940124, 0.155984\");
+        }
+      }
+    }";
+        let (_, _) = pin_parser(input_str).unwrap();
     }
 }

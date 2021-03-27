@@ -4,8 +4,6 @@ use serde_json::Value;
 use std::{fs, path::Path, time::*};
 
 pub use ast::Liberty;
-pub use parser::cell_parser::*;
-pub use parser::liberty_parser::*;
 
 mod ast;
 mod dump;
@@ -22,13 +20,7 @@ where
     info!("Finish Parsing, Time Used:{:?}", passed.duration_since(now));
     info!("Starting Dumping...");
     let now = SystemTime::now();
-    if liberty_data.cell.is_empty() {
-        info!("Detect library liberty file, only library json will be dumped");
-        liberty_data.dump_library(&destinate)?;
-    } else {
-        info!("Detect complete liberty file, library and cell json will be dumped");
-        liberty_data.dump_cell(&destinate)?;
-    }
+    liberty_data.dump(&destinate)?;
     let passed = SystemTime::now();
     info!("Finish Dumping, Time Used:{:?}", passed.duration_since(now));
     Ok(())
