@@ -68,15 +68,7 @@ if you not specify output_folder path, tool use the path of liberty file to gene
 
 
 
-## Benchmark
-
-**Machine**
-Intel® Core™ i5-8500 CPU @ 3.00GHz × 6 
-8GiB mem
-
-134M lib file
-converting time: 287.397824002s
-dump time: 417.875762ms - converting time
+Check [wiki](https://github.com/erihsu/liberty2json/wiki/All-Aboute-liberty2json) for details
 
 ## Reference
 
